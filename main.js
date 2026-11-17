@@ -67,6 +67,20 @@ async function handlePut(req, res, filePath) {
   sendText(res, 201, 'Картинку збережено в кеш');
 }
 
+async function handleDelete(res, code, filePath) {
+  try {
+    await fs.unlink(filePath);
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      sendText(res, 404, `Картинки для коду ${code} немає в кеші`);
+      return;
+    }
+    throw error;
+  }
+
+  sendText(res, 200, 'Картинку видалено з кешу');
+}
+
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://localhost');
@@ -89,7 +103,12 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    res.writeHead(405, { 'Content-Type': 'text/plain; charset=utf-8', Allow: 'GET, PUT' });
+    if (req.method === 'DELETE') {
+      await handleDelete(res, code, filePath);
+      return;
+    }
+
+    res.writeHead(405, { 'Content-Type': 'text/plain; charset=utf-8', Allow: 'GET, PUT, DELETE' });
     res.end('Метод не дозволено');
   } catch {
     sendText(res, 500, 'Внутрішня помилка сервера');
