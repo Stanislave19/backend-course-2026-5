@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import http from 'node:http';
 import { once } from 'node:events';
 import { Command } from 'commander';
+import superagent from 'superagent';
 
 const program = new Command();
 
@@ -21,9 +22,60 @@ try {
   process.exit(1);
 }
 
+function sendText(res, status, message) {
+  res.writeHead(status, { 'Content-Type': 'text/plain; charset=utf-8' });
+  res.end(message);
+}
+
+function sendImage(res, image, source) {
+  res.writeHead(200, { 'Content-Type': 'image/jpeg', 'X-Cache': source });
+  res.end(image);
+}
+
+async function handleGet(res, code, filePath) {
+  try {
+    const image = await fs.readFile(filePath);
+    sendImage(res, image, 'HIT');
+    return;
+  } catch {
+    // картинки немає в кеші — отримуємо її з http.cat
+  }
+
+  let image;
+  try {
+    const response = await superagent.get(`https://http.cat/${code}`);
+    image = response.body;
+  } catch {
+    sendText(res, 404, `Картинку для коду ${code} не знайдено`);
+    return;
+  }
+
+  await fs.writeFile(filePath, image);
+  sendImage(res, image, 'MISS');
+}
+
 const server = http.createServer(async (req, res) => {
-  res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
-  res.end('Проксі-сервер працює');
+  try {
+    const url = new URL(req.url, 'http://localhost');
+    const code = url.pathname.slice(1);
+
+    if (!/^\d{3}$/.test(code)) {
+      sendText(res, 400, 'Шлях має бути тризначним кодом стану, наприклад /200');
+      return;
+    }
+
+    const filePath = `${options.cache}/${code}.jpg`;
+
+    if (req.method === 'GET') {
+      await handleGet(res, code, filePath);
+      return;
+    }
+
+    res.writeHead(405, { 'Content-Type': 'text/plain; charset=utf-8', Allow: 'GET' });
+    res.end('Метод не дозволено');
+  } catch {
+    sendText(res, 500, 'Внутрішня помилка сервера');
+  }
 });
 
 try {

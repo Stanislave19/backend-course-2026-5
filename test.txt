@@ -1,0 +1,17 @@
+# Запуск сервера
+npm run dev
+
+# GET: картинки ще немає в кеші (X-Cache: MISS)
+curl -s -D - -o /dev/null http://localhost:3000/200
+
+# GET: повторний запит, картинка з кешу (X-Cache: HIT)
+curl -s -D - -o /dev/null http://localhost:3000/200
+
+# GET: неіснуючий код (404)
+curl -i http://localhost:3000/999
+
+# Некоректний шлях (400)
+curl -i http://localhost:3000/abc
+
+# Недозволений метод (405)
+curl -i -X POST http://localhost:3000/200
