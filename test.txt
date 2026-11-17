@@ -15,3 +15,21 @@ curl -i http://localhost:3000/abc
 
 # Недозволений метод (405)
 curl -i -X POST http://localhost:3000/200
+
+# Завантажити власну картинку для перевірки PUT
+curl -s -o my-cat.jpg https://http.cat/418
+
+# PUT: записати власну картинку в кеш (201)
+curl -i -X PUT -H "Content-Type: image/jpeg" --data-binary @my-cat.jpg http://localhost:3000/404
+
+# GET після PUT: повертається власна картинка з кешу (X-Cache: HIT)
+curl -s -D - -o /dev/null http://localhost:3000/404
+
+# Перевірка, що картинку збережено без змін
+cmp my-cat.jpg cache/404.jpg && echo "Файли однакові"
+
+# PUT: заміна наявної картинки (201)
+curl -i -X PUT -H "Content-Type: image/jpeg" --data-binary @my-cat.jpg http://localhost:3000/200
+
+# PUT без тіла (400)
+curl -i -X PUT http://localhost:3000/500

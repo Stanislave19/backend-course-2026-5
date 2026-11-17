@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import http from 'node:http';
 import { once } from 'node:events';
+import { buffer } from 'node:stream/consumers';
 import { Command } from 'commander';
 import superagent from 'superagent';
 
@@ -54,6 +55,18 @@ async function handleGet(res, code, filePath) {
   sendImage(res, image, 'MISS');
 }
 
+async function handlePut(req, res, filePath) {
+  const image = await buffer(req);
+
+  if (image.length === 0) {
+    sendText(res, 400, 'Тіло запиту порожнє: надішліть картинку');
+    return;
+  }
+
+  await fs.writeFile(filePath, image);
+  sendText(res, 201, 'Картинку збережено в кеш');
+}
+
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://localhost');
@@ -71,7 +84,12 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    res.writeHead(405, { 'Content-Type': 'text/plain; charset=utf-8', Allow: 'GET' });
+    if (req.method === 'PUT') {
+      await handlePut(req, res, filePath);
+      return;
+    }
+
+    res.writeHead(405, { 'Content-Type': 'text/plain; charset=utf-8', Allow: 'GET, PUT' });
     res.end('Метод не дозволено');
   } catch {
     sendText(res, 500, 'Внутрішня помилка сервера');
